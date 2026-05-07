@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <title>BabyGPT Training Stats</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body class="bg-[#0b0b0b] text-gray-200 p-8">
+
+    <div class="max-w-6xl mx-auto">
+        <div class="flex justify-between items-center mb-8">
+            <h1 class="text-2xl font-bold text-blue-500">Training Analytics</h1>
+            <input type="file" id="historyUpload" accept=".json" class="hidden">
+            <button onclick="document.getElementById('historyUpload').click()"
+                class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg transition">
+                Upload JSON History
+            </button>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="bg-[#161616] p-4 rounded-xl border border-gray-800">
+                <h2 class="text-sm text-gray-400 mb-4 uppercase tracking-widest">Loss Curve</h2>
+                <canvas id="lossChart"></canvas>
+            </div>
+            <div class="bg-[#161616] p-4 rounded-xl border border-gray-800">
+                <h2 class="text-sm text-gray-400 mb-4 uppercase tracking-widest">Learning Rate</h2>
+                <canvas id="lrChart"></canvas>
+            </div>
+        </div>
+
+        <div id="meta" class="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4"></div>
+    </div>
+
+    <script>
+        // Global object to store Chart.js instances for updates/destruction
+        let charts = {};
+
+        // Handle JSON file upload and parsing
+        document.getElementById('historyUpload').onchange = async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            try {
+                const data = JSON.parse(await file.text());
+                renderStats(data);
+            } catch (err) {
+                console.error("Failed to parse history file:", err);
+            }
+        };
+
+        /**
+         * Main function to process history data and update UI components
+         * @param {Object} data - Parsed JSON object containing history and metadata
+         */
+        function renderStats(data) {
+            const h = data.history;
+            
+            // Filter and map data using minified keys (l = loss, s = step, lr = learning rate)
+            const validHistory = h.filter(i => i.l !== null);
+            const labels = h.map(i => i.s);
+
+            const finalLoss = data.summary.final_loss;
+            const lossDisplay = (finalLoss !== null && finalLoss !== undefined)
+                ? finalLoss.toFixed(6)
+                : "N/A";
+
+            // Update the metadata grid with summary information
+            const meta = document.getElementById('meta');
+            meta.innerHTML = `
+                <div class="bg-[#161616] p-4 rounded-lg border border-gray-800">
+                    <p class="text-xs text-gray-500">Final Loss</p>
+                    <p class="text-xl font-mono text-blue-400">${lossDisplay}</p>
+                </div>
+                <div class="bg-[#161616] p-4 rounded-lg border border-gray-800">
+                    <p class="text-xs text-gray-500">Avg Step Time</p>
+                    <p class="text-xl font-mono">${data.summary.average_step_time || 0}s</p>
+                </div>
+                <div class="bg-[#161616] p-4 rounded-lg border border-gray-800">
+                    <p class="text-xs text-gray-500">Total Steps</p>
+                    <p class="text-xl font-mono">${data.metadata.total_steps}</p>
+                </div>
+                <div class="bg-[#161616] p-4 rounded-lg border border-gray-800">
+                    <p class="text-xs text-gray-500">Vocab Size</p>
+                    <p class="text-xl font-mono">${data.metadata.config.vocabSize}</p>
+                </div>
+            `;
+
+            // Render/Update charts using mapped history arrays
+            updateChart('lossChart', labels, h.map(i => i.l), 'Loss', '#3b82f6');
+            updateChart('lrChart', labels, h.map(i => i.lr), 'Learning Rate', '#10b981');
+        }
+
+        /**
+         * Generic function to create or refresh a Chart.js line chart
+         */
+        function updateChart(id, labels, data, label, color) {
+            // Destroy existing chart instance to prevent memory leaks and hover glitches
+            if (charts[id]) charts[id].destroy();
+
+            const ctx = document.getElementById(id).getContext('2d');
+            charts[id] = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: label,
+                        data: data,
+                        borderColor: color,
+                        backgroundColor: color + '22',
+                        borderWidth: 2,
+                        fill: true,
+                        pointRadius: 0, // Performance optimization for large datasets
+                        tension: 0.2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { 
+                            grid: { color: '#222' }, 
+                            ticks: { color: '#555', maxTicksLimit: 10 } 
+                        },
+                        y: { 
+                            grid: { color: '#222' }, 
+                            ticks: { color: '#555' } 
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,4 @@
+datasets/sk.txt
+*.log
+.DS_Store
+node_modules/

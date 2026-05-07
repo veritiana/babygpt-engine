@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BabyGPT Engine | WebGPU Turbo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* UI Polish: Custom scrollbars and slider styling for a premium feel */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #111;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #333;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #444;
+        }
+
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #3b82f6;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
+        }
+    </style>
+</head>
+
+<body class="bg-[#0b0b0b] text-gray-200 min-h-screen p-4 md:p-8">
+
+    <div class="max-w-6xl mx-auto space-y-6">
+
+        <header class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-[#111] p-6 rounded-2xl border border-white/5 shadow-2xl">
+            <div>
+                <h1 class="text-3xl font-black tracking-tighter bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent italic">
+                    BABY GPT <span class="text-xs font-normal text-gray-500 uppercase tracking-widest ml-2">WebGPU Edition</span>
+                </h1>
+                <p class="text-gray-500 text-sm mt-1">Deep Learning Framework running directly in your browser.</p>
+            </div>
+            <div id="gpuStatus" class="flex items-center gap-2 px-4 py-2 bg-emerald-500/10 border border-emerald-500/20 rounded-full text-emerald-400 text-xs font-bold uppercase">
+                <div class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                GPU ACCELERATION ACTIVE
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+            <aside class="space-y-6">
+                <section class="bg-[#111] p-6 rounded-2xl border border-white/5">
+                    <h2 class="text-sm font-bold text-gray-400 mb-6 uppercase tracking-widest flex items-center gap-2">
+                        <span class="w-4 h-px bg-blue-500"></span> Training Config
+                    </h2>
+
+                    <div class="space-y-5">
+                        <div>
+                            <label class="block text-[10px] font-bold text-gray-500 uppercase mb-2">Dataset Source</label>
+                            <select id="dataset" class="w-full bg-[#181818] border border-white/10 p-3 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm transition-all">
+                                <option value="datasets/shakespeare.txt">Shakespeare Poems</option>
+                                <option value="datasets/philosophy.txt">Simple Philosophy</option>
+                                <option value="datasets/code_js.txt">JavaScript Code Snippets</option>
+                            </select>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-[10px] font-bold text-gray-500 uppercase mb-2">Layers</label>
+                                <input type="number" id="numLayers" value="3" class="w-full bg-[#181818] border border-white/10 p-3 rounded-xl text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-bold text-gray-500 uppercase mb-2">Heads</label>
+                                <input type="number" id="numHeads" value="4" class="w-full bg-[#181818] border border-white/10 p-3 rounded-xl text-sm">
+                            </div>
+                        </div>
+
+                        <div class="space-y-2">
+                            <div class="flex justify-between">
+                                <label class="text-[10px] font-bold text-gray-500 uppercase">Learning Rate</label>
+                                <span id="lrVal" class="text-xs font-mono text-blue-400">0.001</span>
+                            </div>
+                            <input type="range" id="lr" min="0.0001" max="0.01" step="0.0001" value="0.001" class="w-full h-1 bg-gray-800 rounded-lg appearance-none cursor-pointer">
+                        </div>
+
+                        <div class="pt-4 border-t border-white/5">
+                            <label class="block text-[10px] font-bold text-gray-500 uppercase mb-2">Resume from Weights (optional)</label>
+                            <input type="file" id="weightsUpload" accept=".json" class="block w-full text-xs text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-blue-500/10 file:text-blue-400 hover:file:bg-blue-500/20 cursor-pointer" />
+                        </div>
+
+                        <div class="flex gap-2 pt-2">
+                            <button id="startBtn" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white py-3 rounded-xl font-bold text-sm transition-all shadow-lg shadow-blue-500/20 active:scale-95">START TRAINING</button>
+                            <button id="stopBtn" class="px-6 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white py-3 rounded-xl font-bold text-sm transition-all active:scale-95">STOP</button>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="bg-[#111] p-6 rounded-2xl border border-white/5">
+                    <h2 class="text-sm font-bold text-gray-400 mb-6 uppercase tracking-widest flex items-center gap-2">
+                        <span class="w-4 h-px bg-emerald-500"></span> Live Metrics
+                    </h2>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="bg-[#0b0b0b] p-4 rounded-xl border border-white/5">
+                            <div class="text-[10px] font-bold text-gray-500 uppercase mb-1">Loss (Error)</div>
+                            <div id="statLoss" class="text-xl font-mono font-bold text-blue-400">---</div>
+                        </div>
+                        <div class="bg-[#0b0b0b] p-4 rounded-xl border border-white/5">
+                            <div class="text-[10px] font-bold text-gray-500 uppercase mb-1">Speed (s/step)</div>
+                            <div id="statTime" class="text-xl font-mono font-bold text-emerald-400">---</div>
+                        </div>
+                    </div>
+                    <div class="mt-4 bg-gray-800 h-1.5 rounded-full overflow-hidden">
+                        <div id="progressBar" class="h-full bg-blue-500 w-0 transition-all duration-300"></div>
+                    </div>
+                    <div class="flex justify-between mt-2 text-[10px] font-mono text-gray-500">
+                        <span>STEP: <span id="statStep">0</span></span>
+                        <span id="statProgress">0%</span>
+                    </div>
+                </section>
+            </aside>
+
+            <main class="lg:col-span-2 space-y-6">
+                
+                <section class="bg-[#111] rounded-2xl border border-white/5 flex flex-col h-[400px]">
+                    <div class="p-4 border-b border-white/5 flex justify-between items-center bg-[#141414] rounded-t-2xl">
+                        <div class="text-xs font-bold uppercase tracking-widest text-gray-400">System Logs</div>
+                        <button id="clearLogs" class="text-[10px] text-gray-500 hover:text-gray-300">CLEAR</button>
+                    </div>
+                    <div id="logs" class="p-6 font-mono text-xs overflow-y-auto flex-1 space-y-1 text-blue-100/70"></div>
+                </section>
+
+                <section class="bg-[#111] p-6 rounded-2xl border border-white/5 space-y-6 shadow-2xl relative overflow-hidden">
+                    <div class="absolute top-0 right-0 p-8 opacity-5">
+                        <svg width="100" height="100" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="text-blue-500"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                    </div>
+
+                    <div class="flex flex-col md:flex-row gap-4 items-end">
+                        <div class="flex-1 space-y-2 w-full">
+                            <div class="flex justify-between items-center">
+                                <label class="text-xs font-bold text-gray-400 uppercase tracking-widest">Model Prompt</label>
+                                <div class="flex items-center gap-4">
+                                    <span class="text-[10px] text-gray-500 italic">Creative Temp: <span id="tempVal">0.7</span></span>
+                                    <input type="range" id="temperature" min="0.1" max="1.5" step="0.1" value="0.7" class="w-24 h-1 bg-gray-800 rounded-lg appearance-none cursor-pointer">
+                                </div>
+                            </div>
+                            <input type="text" id="promptInput" placeholder="Enter text to start generation..." class="w-full bg-[#0b0b0b] border border-white/10 p-4 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none text-sm transition-all shadow-inner">
+                        </div>
+                        <button id="generateBtn" class="bg-emerald-600 hover:bg-emerald-500 text-white px-8 py-4 rounded-xl font-bold text-sm transition-all shadow-lg shadow-emerald-500/20 active:scale-95 whitespace-nowrap">GENERATE AI TEXT</button>
+                    </div>
+
+                    <div id="outputArea" class="bg-[#0b0b0b] p-6 rounded-xl border border-emerald-500/20 min-h-[120px] text-sm leading-relaxed text-emerald-100/90 whitespace-pre-wrap font-serif">Wait for training or load a model to generate text...</div>
+
+                    <div class="flex justify-end gap-3 pt-4 border-t border-white/5">
+                        <button id="saveNowBtn" class="text-[10px] font-bold text-gray-500 hover:text-blue-400 transition-colors uppercase tracking-widest border border-white/10 px-4 py-2 rounded-lg">💾 Save Model & History</button>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <script type="module">
+        import { startTraining, saveTrainingHistory, loadModelWeights, TOKENIZER_TYPE } from "./training.js";
+        import { generateText } from "./predict.js";
+
+        // Global DOM cache
+        const logs = document.getElementById("logs");
+        const startBtn = document.getElementById("startBtn");
+        const stopBtn = document.getElementById("stopBtn");
+        const generateBtn = document.getElementById("generateBtn");
+        const outputArea = document.getElementById("outputArea");
+        const weightsUpload = document.getElementById("weightsUpload");
+
+        // Runtime state
+        let isRunning = false;
+        let model = null;
+        let tokenizer = null;
+        let latestHistory = [];
+        let stopTrainingRequested = false;
+
+        // Custom logging function for terminal simulation
+        const log = (msg) => {
+            const time = new Date().toLocaleTimeString();
+            logs.innerHTML += `<div class="border-l-2 border-blue-500/30 pl-3 py-1"><span class="text-gray-600 mr-2">[${time}]</span> ${msg}</div>`;
+            logs.scrollTop = logs.scrollHeight;
+        };
+
+        // Real-time UI label updates for sliders
+        document.getElementById("lr").oninput = (e) => {
+            document.getElementById("lrVal").innerText = e.target.value;
+        };
+        document.getElementById("temperature").oninput = (e) => {
+            document.getElementById("tempVal").innerText = e.target.value;
+        };
+
+        // Handles the core training loop initialization
+        startBtn.onclick = async () => {
+            if (isRunning) return;
+
+            // Architecture and optimization parameters
+            const config = {
+                seqLen: 32,
+                batchSize: 8,
+                epochs: 200,
+                lr: parseFloat(document.getElementById("lr").value),
+                embedDim: 128,
+                hiddenDim: 256,
+                numHeads: parseInt(document.getElementById("numHeads").value),
+                numLayers: parseInt(document.getElementById("numLayers").value),
+            };
+
+            const datasetUrl = document.getElementById("dataset").value;
+
+            try {
+                isRunning = true;
+                stopTrainingRequested = false;
+                startBtn.disabled = true;
+                startBtn.innerText = "TRAINING...";
+                startBtn.classList.add("opacity-50");
+                log(`Starting training on: ${datasetUrl}`);
+
+                // Load weights from file if provided to skip cold start
+                let preloadedData = null;
+                if (weightsUpload.files.length > 0) {
+                    log("Loading provided model weights...");
+                    preloadedData = await loadModelWeights(weightsUpload.files[0]);
+                }
+
+                // Execution of training with per-step UI callbacks
+                await startTraining(datasetUrl, config, (stats) => {
+                    if (stopTrainingRequested) throw new Error("STOPPED_BY_USER");
+
+                    // Update UI numeric metrics
+                    document.getElementById("statLoss").innerText = stats.loss.toFixed(4);
+                    document.getElementById("statTime").innerText = stats.historyEntry.delta_sec.toFixed(3);
+                    document.getElementById("statStep").innerText = stats.step;
+                    
+                    const progress = ((stats.step / stats.totalSteps) * 100).toFixed(1);
+                    document.getElementById("progressBar").style.width = `${progress}%`;
+                    document.getElementById("statProgress").innerText = `${progress}%`;
+
+                    // Keep references to current model state for inference
+                    model = stats.model;
+                    tokenizer = stats.tokenizer;
+                    latestHistory.push(stats.historyEntry);
+
+                    if (stats.step % 10 === 0) {
+                        log(`Step ${stats.step}: Loss = ${stats.loss.toFixed(4)}`);
+                    }
+                }, preloadedData);
+
+            } catch (err) {
+                if (err.message === "STOPPED_BY_USER") {
+                    log("Training interrupted by user.");
+                } else {
+                    log(`Error: ${err.message}`);
+                    console.error(err);
+                }
+            } finally {
+                isRunning = false;
+                startBtn.disabled = false;
+                startBtn.innerText = "START TRAINING";
+                startBtn.classList.remove("opacity-50");
+            }
+        };
+
+        // Flag setting for graceful loop termination
+        stopBtn.onclick = () => {
+            if (!isRunning) return;
+            stopTrainingRequested = true;
+            log("Stopping... waiting for the current step to finalize.");
+        };
+
+        // Handles token generation based on trained/loaded model
+        generateBtn.onclick = async () => {
+            if (!model || !tokenizer) {
+                return alert("You must train the model or upload weights first!");
+            }
+
+            const prompt = document.getElementById("promptInput").value || "The";
+            const temperature = parseFloat(document.getElementById("temperature").value);
+            
+            outputArea.innerText = "AI is thinking...";
+
+            try {
+                // Perform autoregressive generation
+                const output = await generateText(model, tokenizer, prompt, {
+                    maxNewTokens: 60,
+                    temperature: Math.max(0.05, temperature),
+                    topK: Math.max(1, Math.floor(5 - temperature * 4)),
+                    repetitionPenalty: 1.25
+                });
+
+                outputArea.innerHTML = `<strong>Prompt:</strong> ${prompt}<br><strong>AI:</strong> ${output}`;
+
+            } catch (err) {
+                log(`Generation error: ${err.message}`);
+                outputArea.innerText = "Error during generation process.";
+            }
+        };
+
+        // Serializes model state and tokenizer data for local storage
+        saveNowBtn.onclick = async () => {
+            if (!model) return alert("Nothing to save!");
+
+            let saveData = null;
+            if (TOKENIZER_TYPE === "bpe") {
+                saveData = {
+                    tokenizerType: "bpe",
+                    tokenizerData: {
+                        tokenToId: tokenizer.tokenToId,
+                        idToToken: tokenizer.idToToken,
+                        merges: tokenizer.merges
+                    }
+                };
+            } else {
+                saveData = tokenizer ? tokenizer.wordToId : null;
+            }
+
+            log("Saving weights and training history...");
+            await model.saveToDisk(saveData);
+
+            if (latestHistory.length > 0) {
+                await saveTrainingHistory(latestHistory, model.config);
+            }
+        };
+
+        document.getElementById("clearLogs").onclick = () => logs.innerHTML = "";
+    </script>
+</body>
+</html>
